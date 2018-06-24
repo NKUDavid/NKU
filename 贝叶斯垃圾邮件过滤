@@ -1,0 +1,61 @@
+import numpy as np
+import pandas as pd
+import  sys
+import time
+
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import recall_score,f1_score,precision_score
+from sklearn.decomposition import TruncatedSVD
+from sklearn.naive_bayes import BernoulliNB
+
+print('开始进行数据读取')
+#数据读取
+path = './data/result_process02.csv'
+data = pd.read_csv(path,sep=',')
+
+print('开始进行数据处理')
+#数据去空值，以及训练数据测试数据划分
+data.dropna(axis=0,how='any',inplace=True)
+x_train,x_test,y_train,y_test = train_test_split(data[['has_date','jieba_cut_content','content_length_sema']],data['label'],test_size=0.2,random_state=20)
+
+print('开始进行TF_IDF模型训练，转化')
+time_strat = time.time()
+#对数据进行词袋法 模型训练  并对训练测试数据进行划分
+TF_IDF_transform_model = TfidfVectorizer(norm='l2',use_idf=True) #l2的目的就是进行归一化操作
+jieba_cut_content_transform_model = TF_IDF_transform_model.fit(list(x_train['jieba_cut_content']))
+jieba_cut_content_train = jieba_cut_content_transform_model.transform(list(x_train['jieba_cut_content']))
+jieba_cut_content_test =jieba_cut_content_transform_model.transform(list(x_test['jieba_cut_content']))
+time_end = time.time()
+print('TF_IDF训练共计花费时间{}'.format(time_end-time_strat))
+
+print('开始进行SVD矩阵降维')
+time_strat = time.time()
+#训练svd降维模型 以及对训练和测试模型进行转换
+svd_model =TruncatedSVD(n_components=30).fit(jieba_cut_content_train)
+data_train = svd_model.transform(jieba_cut_content_train)
+data_test = svd_model.transform(jieba_cut_content_test)
+time_end = time.time()
+print('SVD矩阵降维训练共计花费时间{}'.format(time_end-time_strat))
+
+print('开始进行训练数据整合')
+#将数据转换为想要的格式
+data_train1 = pd.DataFrame(data_train)
+data_test1 = pd.DataFrame(data_test)
+data_train1['has_date'] = list(x_train['has_date'])
+data_train1['content_length_sema'] = list(x_train['content_length_sema'])
+data_test1['has_date'] = list(x_test['has_date'])
+data_test1['content_length_sema'] = list(x_test['content_length_sema'])
+
+#构建贝叶斯模型
+print('开始训练贝叶斯模型')
+NB_model= BernoulliNB(alpha=1,binarize=0.0005).fit(data_train1,y_train)
+y_predict = NB_model.predict(data_test1)
+precision = precision_score(y_test,y_predict)
+recall = recall_score(y_test,y_predict)
+f1_score = f1_score(y_test,y_predict)
+print(precision,recall,f1_score)
+
+
+
+
