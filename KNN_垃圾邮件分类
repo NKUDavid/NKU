@@ -1,0 +1,61 @@
+import numpy as np
+import pandas as pd
+import sys
+import time
+
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.model_selection import train_test_split
+from sklearn.decomposition import TruncatedSVD
+from sklearn.metrics import precision_score,f1_score,recall_score
+from sklearn.neighbors import KNeighborsClassifier
+
+print('开始数据读取')
+start_time = time.time()
+path = './data/result_process02.csv'
+data = pd.read_csv(path,sep=',')
+data.dropna(axis=0,how='any',inplace=True)
+read_data_time = time.time()
+print('读取数据花费时间为{}秒'.format(read_data_time-start_time))
+
+print('开始数据划分')
+x_train,x_test,y_train,y_test = train_test_split(data[['has_date','jieba_cut_content','content_length_sema']],data['label'],test_size=0.2,random_state=20)
+
+print('开始训练TF_IDF模型,及数据转换')
+TF_IDF_train_time =time.time()
+tf_idf_model = TfidfVectorizer(norm='l2',use_idf=True).fit(list(x_train['jieba_cut_content']))
+tf_idf_train = tf_idf_model.transform(list(x_train['jieba_cut_content']))
+tf_idf_test = tf_idf_model.transform(list(x_test['jieba_cut_content']))
+TF_IDF_train_time_end = time.time()
+print('训练tf_idf模型共计花费时间为{}秒'.format(TF_IDF_train_time_end-TF_IDF_train_time))
+
+svd_start_time = time.time()
+SVD_model = TruncatedSVD(n_components=20).fit(tf_idf_train)
+SVD_train_data = pd.DataFrame(SVD_model.transform(tf_idf_train))
+SVD_test_data = pd.DataFrame(SVD_model.transform(tf_idf_test))
+svd_end_time = time.time()
+print('SVD模型训练共计花费时间{}秒'.format(svd_end_time-svd_start_time))
+print(type(SVD_train_data))
+
+
+SVD_train_data['has_date'] = pd.DataFrame(list(x_train['has_date']))
+SVD_train_data['content_length_sema'] = pd.DataFrame(list(x_train['content_length_sema']))
+SVD_test_data['has_date'] = pd.DataFrame(list(x_test['has_date']))
+SVD_test_data['content_length_sema'] = pd.DataFrame(list(x_test['content_length_sema']))
+
+print(SVD_train_data.shape)
+print('开始模型训练')
+train_start_time = time.time()
+KNN_model = KNeighborsClassifier(n_neighbors=5).fit(SVD_train_data,y_train)
+train_end_time = time.time()
+print('训练KNN模型共计花费时间为{}'.format(train_end_time-train_start_time))
+
+print('输出指标')
+y_predict = KNN_model.predict(SVD_test_data)
+precision = precision_score(y_test,y_predict)
+recall = recall_score(y_test,y_predict)
+f1 = f1_score(y_test,y_predict)
+print('模型的准确率为{}，召回率为{}，f1的值为{}'.format(precision,recall,f1))
+sys_time_out = time.time()
+print('整个模型训练花费时间为{}'.format(sys_time_out-start_time))
+
+
