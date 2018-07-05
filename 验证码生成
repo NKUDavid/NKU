@@ -1,0 +1,88 @@
+#-- encoding :utf-8 --
+'''
+Create by NKU_David 
+'''
+from PIL import Image
+from PIL import ImageDraw,ImageFont,ImageFilter
+import random
+import sys
+'''
+利用PIL包 产生验证码 产生器  
+
+'''
+#随机产生验证码中的一个字符
+# 控制参数  产生数量  字体路径  字体大小，是否模糊，是否旋转
+def identifying_code(code_number,font_path,font_size,save_path,total_number,if_BLUR,if_rotate):
+    '''
+    :param code_number: 每张验证码图片上字母的数量
+    :param font_path:   验证码文字的字体格式ttf文件保存路径
+    :param font_size:    验证码字体大小
+    :param save_path:    产生的验证码存储路径
+    :param total_number:   每次产生多少张验证码
+    :param if_BLUR:       是否进行图片模糊处理
+    :param if_rotate:     验证码文字是否进行旋转
+    :return:
+    '''
+
+    # 随机返回一个数字和大写字母
+    def rndChar():
+        state = True
+        while state:
+            random_number = random.randint(48,90)
+            if (random_number >=58 and random_number <=64):
+                pass
+            else:
+                state = False
+        return chr(random_number)
+
+    #随机产生 验证码底色 三颜色
+    def rndColorl():
+        return (random.randint(64,255),random.randint(64,255),random.randint(64,255))
+
+    #随机产生  验证码 问题 颜色三颜色
+    def rndColor2():
+        return (random.randint(32,127),random.randint(32,127),random.randint(32,127))
+
+
+    width = 60*code_number
+    hight = 60
+    for K in range(total_number):
+        #生成验证码图片
+        image = Image.new('RGB',(width,hight),(0,0,0))
+        draw = ImageDraw.Draw(image)
+        font =ImageFont.truetype(font_path,font_size)
+        number_text = ''
+        for t in range(code_number):
+            text_image = Image.new('RGB',(60,hight),(255,255,255))
+            draw_text = ImageDraw.Draw(text_image)
+            for x in range(60):#产生单个验证码图片 之后进行旋转  模糊处理
+                for y in range(hight):
+                    draw_text.point((x,y),fill=rndColorl())
+            text = rndChar()
+            number_text += text
+            #将文字写到画布上
+            draw_text.text((20,15),text,font=font,fill=rndColor2())
+            #是否旋转
+            if if_rotate:
+                text_image = text_image.rotate(random.randint(-45,45))
+            #图片合并
+            image.paste(text_image,(t*60+random.randint(-10,10),random.randint(-15,15)))
+
+        code_width,code_hight = image.size
+        img_array = image.load()
+        #去除旋转产生的黑色边框
+        for x in range(code_width):
+            for y in range(code_hight):
+                if img_array[x,y]==(0,0,0):
+                    image.putpixel((x,y),rndColorl())
+
+        #是否模糊
+        if if_BLUR:
+            image = image.filter(ImageFilter.BLUR)
+        # image.show()
+        #图片保存
+        save_image_path = save_path + '/' + str(number_text) + '.jpg'
+        image.save(save_image_path,'jpeg')
+
+identifying_code(code_number=4,font_path='./font/platechar.ttf',font_size=36,save_path='./img',total_number=10,if_BLUR=False,if_rotate = True)
+identifying_code(code_number=4,font_path='./font/platechar.ttf',font_size=36,save_path='./img',total_number=10,if_BLUR=True,if_rotate = True)
